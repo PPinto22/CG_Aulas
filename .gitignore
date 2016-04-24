@@ -49,3 +49,11 @@ Temporary Items
 *.tlog
 *.idb
 *.sdf
+*.suo
+*.log
+*.opendb
+*.db
+*.obj
+*.pdb
+*.exe
+*.ilk
