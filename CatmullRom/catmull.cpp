@@ -4,7 +4,6 @@
 #include <math.h>
 #include <GL/glut.h>
 
-
 float camX = 0, camY, camZ = 5;
 int startX, startY, tracking = 0;
 
@@ -15,8 +14,37 @@ int alpha = 0, beta = 0, r = 5;
 // Points that make up the loop for catmull-rom interpolation
 float p[POINT_COUNT][3] = { { -1,-1,0 },{ -1,1,0 },{ 1,1,0 },{ 0,0,0 },{ 1,-1,0 } };
 
+void cross(float *a, float *b, float *res) {
+	res[0] = a[1] * b[2] - a[2] * b[1]; res[1] = a[2] * b[0] - a[0] * b[2]; res[2] = a[0] * b[1] - a[1] * b[0];
+}
 
-void getCatmullRomPoint(float t, int *indices, float *res) {
+void normalize(float *a) {
+	float l = sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]); 
+	a[0] = a[0] / l; 
+	a[1] = a[1] / l; 
+	a[2] = a[2] / l;
+}
+
+void buildRotMatrix(float *x, float *y, float *z, float *m) {
+	m[0] = x[0];
+	m[1] = x[1];
+	m[2] = x[2];
+	m[3] = 0;
+	m[4] = y[0];
+	m[5] = y[1];
+	m[6] = y[2];
+	m[7] = 0;
+	m[8] = z[0]; 
+	m[9] = z[1];
+	m[10] = z[2];
+	m[11] = 0;
+	m[12] = 0; 
+	m[13] = 0; 
+	m[14] = 0; 
+	m[15] = 1;
+}
+
+void getCatmullRomPoint(float t, int *indices, float *res, float* dir) {
 
 	// catmull-rom matrix
 	float M[4][4] = { { -0.5f,  1.5f, -1.5f,  0.5f },
@@ -25,11 +53,11 @@ void getCatmullRomPoint(float t, int *indices, float *res) {
 	{ 0.0f,  1.0f,  0.0f,  0.0f } };
 
 	float T[1][4] = { { pow(t,3),pow(t,2),t,1.0f } };
+	float Td[1][4] = { { 3 * pow(t,2), 2 * t, 1, 0} };
 
 	res[0] = 0.0; res[1] = 0.0; res[2] = 0.0;
-	
-	// Compute point res = T * M * P
-	// where Pi = p[indices[i]]
+	dir[0] = 0.0; dir[1] = 0.0; dir[2] = 0.0;
+
 	float P[4][3];
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 3; j++) {
@@ -37,25 +65,28 @@ void getCatmullRomPoint(float t, int *indices, float *res) {
 		}
 	}
 
-	//Calcular T*M
+	//Calcular T*M e Td*M
 	float TM[1][4] = { {0.0,0.0,0.0,0.0} };
+	float TdM[1][4] = { { 0.0,0.0,0.0,0.0 } };
 	for (int j = 0; j < 4; j++) {
 		for (int k = 0; k < 4; k++) {
 			TM[0][j] += T[0][k] * M[k][j];
+			TdM[0][j] += Td[0][k] * M[k][j];
 		}
 	}
 	
-	//Calcular T*M*P
+	//Calcular T*M*P e Td*M*P
 	for (int xyz = 0; xyz < 3; xyz++) {
 		for (int i = 0; i < 4; i++) {
 			res[xyz] += TM[0][i] * P[i][xyz];
+			dir[xyz] += TdM[0][i] * P[i][xyz];
 		}
 	}
 }
 
 
 // given  global t, returns the point in the curve
-void getGlobalCatmullRomPoint(float gt, float *res) {
+void getGlobalCatmullRomPoint(float gt, float *res, float* dir) {
 
 	float t = gt * POINT_COUNT; // this is the real global t
 	int index = floor(t);  // which segment
@@ -68,7 +99,7 @@ void getGlobalCatmullRomPoint(float gt, float *res) {
 	indices[2] = (indices[1] + 1) % POINT_COUNT;
 	indices[3] = (indices[2] + 1) % POINT_COUNT;
 
-	getCatmullRomPoint(t, indices, res);
+	getCatmullRomPoint(t, indices, res, dir);
 }
 
 
@@ -100,20 +131,25 @@ void changeSize(int w, int h) {
 void renderCatmullRomCurve() {
 	// desenhar a curva usando segmentos de reta - GL_LINE_LOOP
 	float res[3];
+	float dir[3];
 	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i < 1000*3; i++) {
-		getGlobalCatmullRomPoint(i / 1000.0f, res);
+		getGlobalCatmullRomPoint(i / 1000.0f, res, dir);
 		glVertex3f(res[0], res[1], res[2]);
 	}
 	glEnd();
 }
 
 int time = 0;
+float up[3] = { 0.0f, 1.0f, 0.0f };
 
 void renderScene(void) {
 
 	static float t = 0;
-	float res[3];
+	float res[3], dir[3];
+	float left[3];
+	float x[3], y[3], z[3];
+	float m[16];
 
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -125,16 +161,26 @@ void renderScene(void) {
 
 	renderCatmullRomCurve();
 
-	/*time += glutGet(GLUT_ELAPSED_TIME);
-	time = time % LAP_TIME;
-	printf("%d\n", time);
+	time = glutGet(GLUT_ELAPSED_TIME) % LAP_TIME;
 	t = (float)time / LAP_TIME;
-	printf("%f\n", t);*/
-	glutWireTeapot(0.1);
+
+	getGlobalCatmullRomPoint(t, res, dir); 
+	normalize(dir);
+
+	cross(up, dir, left); normalize(left);
+	cross(dir, left, up); normalize(up);
+
+	x[0] = left[0]; x[1] = up[0]; x[2] = dir[0];
+	y[0] = left[1]; y[1] = up[1]; y[2] = dir[1];
+	z[0] = left[2]; z[1] = up[2]; z[2] = dir[2];
+	
+	glTranslatef(res[0], res[1], res[2]);
+	buildRotMatrix(x, y, z, m);
+	glMultMatrixf(m);
+	glutSolidTeapot(0.1);
 
 
 	glutSwapBuffers();
-	t += 0.0001;
 }
 
 
