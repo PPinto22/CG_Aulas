@@ -11,6 +11,7 @@ int startX, startY, tracking = 0;
 int alpha = 0, beta = 0, r = 5;
 
 #define POINT_COUNT 5
+#define LAP_TIME 10000 //milisegundos
 // Points that make up the loop for catmull-rom interpolation
 float p[POINT_COUNT][3] = { { -1,-1,0 },{ -1,1,0 },{ 1,1,0 },{ 0,0,0 },{ 1,-1,0 } };
 
@@ -107,6 +108,7 @@ void renderCatmullRomCurve() {
 	glEnd();
 }
 
+int time = 0;
 
 void renderScene(void) {
 
@@ -123,8 +125,11 @@ void renderScene(void) {
 
 	renderCatmullRomCurve();
 
-	// apply transformations here
-	// ...
+	/*time += glutGet(GLUT_ELAPSED_TIME);
+	time = time % LAP_TIME;
+	printf("%d\n", time);
+	t = (float)time / LAP_TIME;
+	printf("%f\n", t);*/
 	glutWireTeapot(0.1);
 
 
