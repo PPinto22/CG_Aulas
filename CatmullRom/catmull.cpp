@@ -164,21 +164,16 @@ void renderScene(void) {
 	time = glutGet(GLUT_ELAPSED_TIME) % LAP_TIME;
 	t = (float)time / LAP_TIME;
 
-	getGlobalCatmullRomPoint(t, res, dir); 
-	normalize(dir);
-
+	getGlobalCatmullRomPoint(t, res, dir); normalize(dir);
 	cross(up, dir, left); normalize(left);
 	cross(dir, left, up); normalize(up);
 
-	x[0] = left[0]; x[1] = up[0]; x[2] = dir[0];
-	y[0] = left[1]; y[1] = up[1]; y[2] = dir[1];
-	z[0] = left[2]; z[1] = up[2]; z[2] = dir[2];
-	
-	glTranslatef(res[0], res[1], res[2]);
-	buildRotMatrix(x, y, z, m);
-	glMultMatrixf(m);
-	glutSolidTeapot(0.1);
+	buildRotMatrix(left, up, dir, m);
 
+	glTranslatef(res[0], res[1], res[2]);
+	glMultMatrixf(m);
+
+	glutSolidTeapot(0.1);
 
 	glutSwapBuffers();
 }

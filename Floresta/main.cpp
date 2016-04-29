@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <glew.h>
+#include <GL/glew.h>
 #include <GL/glut.h>
 #include <IL/il.h>
 

@@ -2,8 +2,11 @@
 #include <vector>
 #include <GL/glew.h>
 #include <GL/glut.h>
+#include <IL/il.h>
 #include <math.h>
+
 #pragma comment(lib,"glew32.lib")
+#pragma comment(lib, "devil.lib")
 
 #define _PI_ 3.14159
 #define N 1
@@ -12,8 +15,11 @@ float alpha = 0.0f, beta = 0.0f, radius = 5.0f;
 float camX, camY, camZ;
 
 // declare variables for VBO id 
-float *vertexB; int verticesB;
-GLuint buffers[N];
+int nVertices;
+GLuint vertices;
+
+unsigned char *texData;
+unsigned int texID;
 
 class Ponto {
 private: float xval, yval, zval;
@@ -70,11 +76,14 @@ Drawing cylinder with VBOs
 void drawCylinder() {
 
 	//	Bind and semantics
-	glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
+	glBindBuffer(GL_ARRAY_BUFFER, vertices);
 	glVertexPointer(3, GL_FLOAT, 0, 0);
 
 	//  Draw
-	glDrawArrays(GL_TRIANGLES, 0, verticesB);
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glDrawArrays(GL_TRIANGLES, 0, nVertices);
+
+	//glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
 }
 
@@ -90,11 +99,9 @@ void bufferAdd(float* buffer, Ponto p, int indice) {
 
 void prepareCylinder(float altura, float radius, int lados) {
 
-	// Enable buffer ??
-
 	// Allocate and fill vertex array
-	verticesB = lados * 6 + 2*lados * 3;
-	vertexB = (float*)malloc(3*verticesB*sizeof(float));
+	nVertices = lados * 6 + 2*lados * 3;
+	float* vertexB = (float*)malloc(3*nVertices*sizeof(float));
 
 	int indice = 0;
 	float alpha = 0;
@@ -136,9 +143,9 @@ void prepareCylinder(float altura, float radius, int lados) {
 	}
 
 	// Generate VBOs
-	glGenBuffers(N, buffers);
-	glBindBuffer(GL_ARRAY_BUFFER, buffers[0]);
-	glBufferData(GL_ARRAY_BUFFER, verticesB*3*sizeof(float), vertexB, GL_STATIC_DRAW);
+	glGenBuffers(1, &vertices);
+	glBindBuffer(GL_ARRAY_BUFFER, vertices);
+	glBufferData(GL_ARRAY_BUFFER, nVertices*3*sizeof(float), vertexB, GL_STATIC_DRAW);
 	free(vertexB);
 }
 
@@ -235,14 +242,32 @@ void main(int argc, char **argv) {
 	glutSpecialFunc(processKeys);
 
 	glewInit();
+	ilInit();
 
 	// OpenGL settings 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_TEXTURE_2D);
 
 	// init
+	unsigned int t, tw, th;
+	ilGenImages(1, &t);
+	ilBindImage(t);
+	ilLoadImage((ILstring)"Oil_Drum001h.jpg");
+	tw = ilGetInteger(IL_IMAGE_WIDTH);
+	th = ilGetInteger(IL_IMAGE_HEIGHT);
+	ilConvertImage(IL_RGBA, IL_UNSIGNED_BYTE);
+	texData = ilGetData();
+	glGenTextures(1, &texID); // unsigned int texID - variavel global;
+	glBindTexture(GL_TEXTURE_2D, texID);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0,
+		GL_RGBA, GL_UNSIGNED_BYTE, texData);
+
 	sphericalToCartesian();
-	glEnableClientState(GL_VERTEX_ARRAY);
 	prepareCylinder(2, 1, 1000);
 
 	// enter GLUTs main cycle
