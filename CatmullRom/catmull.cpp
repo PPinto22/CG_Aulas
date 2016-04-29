@@ -168,7 +168,7 @@ void renderScene(void) {
 	cross(up, dir, left); normalize(left);
 	cross(dir, left, up); normalize(up);
 
-	buildRotMatrix(left, up, dir, m);
+	buildRotMatrix(dir, up, left, m);
 
 	glTranslatef(res[0], res[1], res[2]);
 	glMultMatrixf(m);
